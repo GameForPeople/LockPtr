@@ -21,7 +21,7 @@ namespace WonSY::Concurrency
 				std::cout << "[" << name << "] 주소 " << &cont << ", 요소 개수 : " << cont.size() << std::endl;
 			};
 
-		// 기본적인 사용법
+		// 기본적인 사용법 및 개인적인 생각
 		{
 			WsyLockPtr< Cont > lockPtr( []() { return new Cont(); } );
 
@@ -51,22 +51,57 @@ namespace WonSY::Concurrency
 				);
 			}
 
+			// _WriteDataPtr를 던지거나 Lock을 잡고 Task를 실행시키지 않고, Key만 제공하도록 인터페이스를 구성한 것은, 
+			// 임계 영역과 관련한 자율성을 더 제공하는 유연한 코드의 작성이 가능할 것이라 생각하였습니다.
+			{
+				lockPtr.HelloWrite(
+					[ &PrintFunc ]( auto& lockPtr, const WsyWriteKey& key )
+					{
+						// 아래 두 캐이스 중, 경우에 따라( 보통은 해야하는 작업의 비용에 따라 ) 선택하는 경우가 다르고, Key만 제공할 경우 유연한 코드 작성이 가능할 것으로 보였습니다.
+
+						// case 1
+						{
+							for ( int i = 0; i < 10; ++i )
+							{
+								auto writePtr = lockPtr.Get( key );
+								writePtr.get(); // something...
+							}
+						}
+
+						// case 2
+						{
+							auto writePtr = lockPtr.Get( key );
+							
+							for ( int i = 0; i < 10; ++i )
+							{
+								writePtr.get(); // something...
+							}
+						}
+					} );
+			}
+
+			// 데이터의 복사 비용이 크지않고, 수정이 1개의 Context에서만 이루어지는 것이 보장된다면, 굳이 Hello-Get보다는, Copy-Set을 사용하는 것이, 더 올바른 판단일 것으로 보입니다.
+			{
+			}
+
 			// Copy Funcs
 			{
-				auto copyValue     = lockPtr.CopyValue();
-				auto copyPtr       = lockPtr.CopyPtr();
-				auto copyUniquePtr = lockPtr.CopyUniquePtr();
-				auto copySharedPtr = lockPtr.CopySharedPtr();
+				auto copyValue = lockPtr.CopyValue();
+				
+				// 1.3 때 불필요한 Copy함수 모두 제거
+				//auto copyPtr       = lockPtr.CopyPtr();
+				//auto copyUniquePtr = lockPtr.CopyUniquePtr();
+				//auto copySharedPtr = lockPtr.CopySharedPtr();
 
 				copyValue.insert( { "A2", 0 } );
-				copyPtr->insert( { "A3", 0 } );
-				copyUniquePtr->insert( { "A4", 0 } );
-				copySharedPtr->insert( { "A5", 0 } );
+				//copyPtr->insert( { "A3", 0 } );
+				//copyUniquePtr->insert( { "A4", 0 } );
+				//copySharedPtr->insert( { "A5", 0 } );
 
 				PrintFunc( "A - 2", copyValue );
-				PrintFunc( "A - 3", *copyPtr );
-				PrintFunc( "A - 4", *( copyUniquePtr.get() ) );
-				PrintFunc( "A - 5", *( copySharedPtr.get() ) );
+				//PrintFunc( "A - 3", *copyPtr );
+				//PrintFunc( "A - 4", *( copyUniquePtr.get() ) );
+				//PrintFunc( "A - 5", *( copySharedPtr.get() ) );
 
 				lockPtr.HelloRead(
 					[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
@@ -75,7 +110,7 @@ namespace WonSY::Concurrency
 						PrintFunc( "A - 6", *( readPtr.get() ) );
 					} );
 
-				delete copyPtr; // omg!
+				//delete copyPtr; // omg!
 			}
 
 			// Write
