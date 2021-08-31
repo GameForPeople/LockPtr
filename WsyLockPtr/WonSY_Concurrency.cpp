@@ -25,10 +25,12 @@ namespace WonSY::Concurrency
 		{
 			WsyLockPtr< Cont > lockPtr( []() { return new Cont(); } );
 
-			if ( !lockPtr )
-			{
-
-			}
+				lockPtr.HelloWrite(
+					[]( auto& lockPtr, const WsyWriteKey& key )
+					{
+						auto writePtr1 = lockPtr.Get( key );
+						auto writePtr2 = lockPtr.Get( key );
+					} );
 
 			// GetForWrite
 			{
@@ -84,6 +86,19 @@ namespace WonSY::Concurrency
 							}
 						}
 					} );
+			}
+
+			// 편의성을 위해 ==, != 의 연산자를 재정의하였으나, DEPRECATED 선언되었습니다.
+			// Get혹은 Copy를 한 이후에, 확인하는 것이 ReadLock 횟수를 줄일 수 있기 떄문입니다.
+			// 다만 컨벤션 통일 등의 사유나, 필요에 의해 USE_OPERATOR_OVERLOADING를 True로 설정할 수 있습니다.
+			{
+				if ( lockPtr )
+				{
+				}
+
+				if ( !lockPtr )
+				{
+				}
 			}
 
 			// 데이터의 복사 비용이 크지않고, 수정이 1개의 Context에서만 이루어지는 것이 보장된다면, 굳이 Hello-Get보다는, Copy-Set을 사용하는 것이, 더 올바른 판단일 것으로 보입니다.
@@ -197,7 +212,7 @@ namespace WonSY::Concurrency
 			}
 
 			// 주의할 점
-			if ( false )
+			if /* constexpr */ ( false )
 			{
 				//  LockPtr Ver 1.2에서 개선됨
 				//// 0. GetForWrite와 Set은 DeadLock을 발생시킬 수 있다.
@@ -286,6 +301,16 @@ namespace WonSY::Concurrency
 
 							// 데드락
 							lockPtr.CopyValue();
+						} );
+				}
+
+				// 4. Write Key로 객체를 얻어온 이후, 또 Write Key로 객체를 얻으려고 할 때( 물론 이상하지만 ), 데드락이 발생한다.
+				{
+					lockPtr.HelloWrite(
+						[]( auto& lockPtr, const WsyWriteKey& key )
+						{
+							auto writePtr1 = lockPtr.Get( key );
+							auto writePtr2 = lockPtr.Get( key );
 						} );
 				}
 			}

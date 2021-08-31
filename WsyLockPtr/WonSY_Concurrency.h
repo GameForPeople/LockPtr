@@ -8,12 +8,20 @@
 
 #define WONSY_CONCURRENCY
 
+#define USE_OPERATOR_OVERLOADING false
+
 #include <functional>
 #include <shared_mutex>
 
-#define NODISCARD  [[nodiscard]]
-#define LIKELY     [[likely]]
-#define UNLIKELY   [[unlikely]]
+#define NODISCARD          [[nodiscard]]
+#define LIKELY             [[likely]]
+#define UNLIKELY           [[unlikely]]
+
+#if USE_OPERATOR_OVERLOADING == false
+#define DEPRECATED [[deprecated]]
+#else
+#define DEPRECATED
+#endif
 
 namespace WonSY::Concurrency
 {
@@ -143,19 +151,25 @@ namespace WonSY::Concurrency
 				delete tempPtr;
 		}
 
-		bool operator!()
+		DEPRECATED explicit operator bool()
+		{
+			std::shared_lock local( this->m_lock );
+			return m_data != nullptr;
+		}
+
+		DEPRECATED bool operator!()
+		{
+			std::shared_lock local( m_lock );
+			return m_data == nullptr;
+		}
+
+		DEPRECATED bool operator==( std::nullptr_t )
 		{
 			std::shared_lock local( m_lock );
 			return m_data != nullptr;
 		}
 
-		bool operator==( std::nullptr_t )
-		{
-			std::shared_lock local( m_lock );
-			return m_data != nullptr;
-		}
-
-		bool operator!=( std::nullptr_t )
+		DEPRECATED bool operator!=( std::nullptr_t )
 		{
 			std::shared_lock local( m_lock );
 			return m_data == nullptr;
