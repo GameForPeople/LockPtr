@@ -25,6 +25,11 @@ namespace WonSY::Concurrency
 		{
 			WsyLockPtr< Cont > lockPtr( []() { return new Cont(); } );
 
+			if ( !lockPtr )
+			{
+
+			}
+
 			// GetForWrite
 			{
 				lockPtr.HelloWrite(
@@ -33,6 +38,7 @@ namespace WonSY::Concurrency
 						auto writePtr = lockPtr.Get( key );
 						writePtr.get()->insert( { "A0", 0 } );
 						PrintFunc( "A - 0", *( writePtr.get() ) );
+
 					} );
 			}
 

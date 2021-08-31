@@ -143,6 +143,24 @@ namespace WonSY::Concurrency
 				delete tempPtr;
 		}
 
+		bool operator!()
+		{
+			std::shared_lock local( m_lock );
+			return m_data != nullptr;
+		}
+
+		bool operator==( std::nullptr_t )
+		{
+			std::shared_lock local( m_lock );
+			return m_data != nullptr;
+		}
+
+		bool operator!=( std::nullptr_t )
+		{
+			std::shared_lock local( m_lock );
+			return m_data == nullptr;
+		}
+
 #pragma endregion
 #pragma region [ Member Var ]
 	private:
