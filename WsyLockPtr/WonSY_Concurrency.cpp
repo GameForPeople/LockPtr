@@ -25,22 +25,16 @@ namespace WonSY::Concurrency
 		{
 			WsyLockPtr< Cont > lockPtr( []() { return new Cont(); } );
 
-				lockPtr.HelloWrite(
-					[]( auto& lockPtr, const WsyWriteKey& key )
-					{
-						auto writePtr1 = lockPtr.Get( key );
-						auto writePtr2 = lockPtr.Get( key );
-					} );
-
 			// GetForWrite
 			{
 				lockPtr.HelloWrite(
 					[ &PrintFunc ]( auto& lockPtr, const WsyWriteKey& key )
 					{
-						auto writePtr = lockPtr.Get( key );
-						writePtr.get()->insert( { "A0", 0 } );
-						PrintFunc( "A - 0", *( writePtr.get() ) );
-
+						if ( auto writePtr = lockPtr.Get( key ) )
+						{
+							writePtr.get()->insert( { "A0", 0 } );
+							PrintFunc( "A - 0", *( writePtr.get() ) );
+						}
 					} );
 			}
 
@@ -49,12 +43,13 @@ namespace WonSY::Concurrency
 				lockPtr.HelloRead(
 					[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 					{
-						auto readPtr = lockPtr.Get( key );
-						
-						// build Error! Only Read!
-						//readPtr.get()->insert( { 1, 1 } );
-						
-						PrintFunc( "A - 1", *( readPtr.get() ) );
+						if ( auto readPtr = lockPtr.Get( key ) )
+						{
+							// build Error! Only Read!
+							//readPtr.get()->insert( { 1, 1 } );
+							
+							PrintFunc( "A - 1", *( readPtr.get() ) );
+						}
 					}
 				);
 			}
@@ -71,18 +66,21 @@ namespace WonSY::Concurrency
 						{
 							for ( int i = 0; i < 10; ++i )
 							{
-								auto writePtr = lockPtr.Get( key );
-								writePtr.get(); // something...
+								if ( auto writePtr = lockPtr.Get( key ) )
+								{
+									writePtr.get(); // something...
+								}
 							}
 						}
 
 						// case 2
 						{
-							auto writePtr = lockPtr.Get( key );
-							
-							for ( int i = 0; i < 10; ++i )
+							if ( auto writePtr = lockPtr.Get( key ) )
 							{
-								writePtr.get(); // something...
+								for ( int i = 0; i < 10; ++i )
+								{
+									writePtr.get(); // something...
+								}
 							}
 						}
 					} );
@@ -92,12 +90,15 @@ namespace WonSY::Concurrency
 			// Get혹은 Copy를 한 이후에, 확인하는 것이 ReadLock 횟수를 줄일 수 있기 떄문입니다.
 			// 다만 컨벤션 통일 등의 사유나, 필요에 의해 USE_OPERATOR_OVERLOADING를 True로 설정할 수 있습니다.
 			{
-				if ( lockPtr )
+				if constexpr ( true == USE_OPERATOR_OVERLOADING )
 				{
-				}
+					if ( lockPtr )
+					{
+					}
 
-				if ( !lockPtr )
-				{
+					if ( !lockPtr )
+					{
+					}
 				}
 			}
 
@@ -127,8 +128,10 @@ namespace WonSY::Concurrency
 				lockPtr.HelloRead(
 					[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 					{
-						auto readPtr = lockPtr.Get( key );
-						PrintFunc( "A - 6", *( readPtr.get() ) );
+						if ( auto readPtr = lockPtr.Get( key ) )
+						{
+							PrintFunc( "A - 6", *( readPtr.get() ) );
+						}
 					} );
 
 				//delete copyPtr; // omg!
@@ -148,23 +151,26 @@ namespace WonSY::Concurrency
 									[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 									{
 										// 아래의 writePtr 아마 먼저 소유권을 가져가서, 여기서 바로 소유권을 얻지 못하고 3초간 대기한다.
-										auto readPtr = lockPtr.Get( key );
-										PrintFunc( "B - 1", *( readPtr.get() ) );
+										if ( auto readPtr = lockPtr.Get( key ) )
+										{
+											PrintFunc( "B - 1", *( readPtr.get() ) );
+										}
 									} );
 							} );
 
 						lockPtr.HelloWrite(
 							[ &PrintFunc ]( auto& lockPtr, const WsyWriteKey& key )
 							{
-								auto writePtr = lockPtr.Get( key );
+								if ( auto writePtr = lockPtr.Get( key ) )
+								{
+									std::this_thread::sleep_for( 2s );
 
-								std::this_thread::sleep_for( 2s );
+									writePtr.get()->insert( { "B0", 0 } );
 
-								writePtr.get()->insert( { "B0", 0 } );
-
-								std::this_thread::sleep_for( 2s );
-								
-								PrintFunc( "B - 0", *( writePtr.get() ) );
+									std::this_thread::sleep_for( 2s );
+									
+									PrintFunc( "B - 0", *( writePtr.get() ) );
+								}
 							} );
 					}
 					th.join();
@@ -182,8 +188,10 @@ namespace WonSY::Concurrency
 									[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 									{
 										// not Waiting
-										auto readPtr = lockPtr.Get( key );
-										PrintFunc( "B - 3 - 1", *( readPtr.get() ) );
+										if ( auto readPtr = lockPtr.Get( key ) )
+										{
+											PrintFunc( "B - 3 - 1", *( readPtr.get() ) );
+										}
 									} );
 
 								std::this_thread::sleep_for( 2s );
@@ -191,8 +199,10 @@ namespace WonSY::Concurrency
 								lockPtr.HelloRead(
 									[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 									{
-										auto readPtr = lockPtr.Get( key );
-										PrintFunc( "B - 3 - 2", *( readPtr.get() ) );
+										if ( auto readPtr = lockPtr.Get( key ) )
+										{
+											PrintFunc( "B - 3 - 2", *( readPtr.get() ) );
+										}
 									} );
 							} );
 
@@ -258,7 +268,10 @@ namespace WonSY::Concurrency
 								[]( auto& nodePtr, const WsyWriteKey& key )
 								{
 									auto writePtr = nodePtr.Get( key );
-									delete ( *writePtr ).m_ptr;
+
+									if ( ( *writePtr ).m_ptr )
+										delete ( *writePtr ).m_ptr;
+
 									( *writePtr ).m_ptr = nullptr;
 								} );
 

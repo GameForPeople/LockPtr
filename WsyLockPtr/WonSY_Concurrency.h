@@ -155,25 +155,25 @@ namespace WonSY::Concurrency
 		{
 			std::shared_lock local( this->m_lock );
 			return m_data != nullptr;
-		}
+		};
 
 		DEPRECATED bool operator!()
 		{
 			std::shared_lock local( m_lock );
 			return m_data == nullptr;
-		}
+		};
 
 		DEPRECATED bool operator==( std::nullptr_t )
 		{
 			std::shared_lock local( m_lock );
 			return m_data != nullptr;
-		}
+		};
 
 		DEPRECATED bool operator!=( std::nullptr_t )
 		{
 			std::shared_lock local( m_lock );
 			return m_data == nullptr;
-		}
+		};
 
 #pragma endregion
 #pragma region [ Member Var ]
