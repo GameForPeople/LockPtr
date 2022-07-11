@@ -32,11 +32,11 @@ namespace WonSY::Concurrency
 	type( type&& ) = delete;                  \
 	type& operator=( type&& ) = delete;       \
 
-	struct ReadKey { template < class _Type > friend struct LockPtr; private: explicit ReadKey()  = default; DELETE_COPY_AND_MOVE( ReadKey )  };
-	struct WriteKey{ template < class _Type > friend struct LockPtr; private: explicit WriteKey() = default; DELETE_COPY_AND_MOVE( WriteKey ) };
+	struct ReadKey { template < class _Type > friend class LockPtr; private: explicit ReadKey()  = default; DELETE_COPY_AND_MOVE( ReadKey )  };
+	struct WriteKey{ template < class _Type > friend class LockPtr; private: explicit WriteKey() = default; DELETE_COPY_AND_MOVE( WriteKey ) };
 
 	template < class _Type >
-	struct LockPtr
+	class LockPtr
 	{
 #pragma region [ Def ]
 		// LockPtr Ver 0.1 기존의 Atomic Shared Ptr가 항상 데이터를 복사해서 전달해주는 단점을 개선하기 위한 인터페이스 시도
@@ -46,17 +46,22 @@ namespace WonSY::Concurrency
 		// LockPtr Ver 1.1 Write가 필요할 경우, data를 인자로 받는 Func을 받아서 처리하고, 락 걸고 해당 함수 실행 
 		// LockPtr Ver 1.2 Key 개념 적용, 데드락 상태 최소화할 수 있도록 전체 구조 개선
 		// LockPtr Ver 1.3 비효율적으로 Set하던 로직 수정, 불필요한 Copy 계열 함수들 모두 제거, Like-Unlike
+		// LockPtr Ver 2.0 인터페이스 네이밍 수정
 
 		// 개선이 필요한 점
 		// 0. Type이 Map이라 가정할 떄, Map의 구조는 변경하지 않고, Value에 접근하여 변경할 때는 동기화 대상이 Map이 아니고, 해당 내부 Value이기 때문에 굳이 비싼 HelloWrite를 사용할 필요가 없음... ReadLock을 사용해도 TS함.
 		// 1. Get보다는 Ref가 더 정확한 표현으로 보이는데, 관용적으로는 Get이 맞으니.. 더 좋은 네이밍에 대해서 전체적으로 고려할 필요가 있음..
+		// 2. A의 lockPtr의 Key로, B LockPtr의 오픈이 가능한 이슈
 
+	public:
 		using _TypePtr       = _Type*;
 		using _TypeConstPtr  = _Type const*;
 		using _ReadDataPtr   = std::unique_ptr< const _Type, std::function< void( const _TypeConstPtr ) > >;
 		using _WriteDataPtr  = std::unique_ptr< _Type, std::function< void( _TypePtr ) > >;
+
 #pragma endregion
 #pragma region [ Public Func ]
+	public:
 		LockPtr( const std::function< _TypePtr() >& func )
 			: m_data( nullptr )
 			, m_lock()
@@ -88,13 +93,13 @@ namespace WonSY::Concurrency
 			if ( m_data ) LIKELY { delete m_data; }
 		}
 
-		void HelloRead( const std::function< void( LockPtr< _Type >& lockPtr, const ReadKey& ) >& func )
+		void OpenRead( const std::function< void( LockPtr< _Type >& lockPtr, const ReadKey& ) >& func )
 		{
 			ReadKey key;
 			func( *this, key );
 		}
 
-		void HelloWrite( const std::function< void( LockPtr< _Type >& lockPtr, const WriteKey& ) >& func )
+		void OpenWrite( const std::function< void( LockPtr< _Type >& lockPtr, const WriteKey& ) >& func )
 		{
 			WriteKey key;
 			func( *this, key );
@@ -131,7 +136,7 @@ namespace WonSY::Concurrency
 				} );
 		}
 
-		_Type CopyValue()
+		_Type GetCopy()
 		{
 			// 깊은 복사가 지원되지 않을 경우, 여기서부터 지옥의 시작이다.
 			std::shared_lock local( m_lock );

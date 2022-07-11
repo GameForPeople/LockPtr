@@ -27,7 +27,7 @@ namespace WonSY::Concurrency
 
 			// GetForWrite
 			{
-				lockPtr.HelloWrite(
+				lockPtr.OpenWrite(
 					[ &PrintFunc ]( auto& lockPtr, const WsyWriteKey& key )
 					{
 						if ( auto writePtr = lockPtr.Get( key ) )
@@ -40,7 +40,7 @@ namespace WonSY::Concurrency
 
 			// GetForRead
 			{
-				lockPtr.HelloRead(
+				lockPtr.OpenRead(
 					[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 					{
 						if ( auto readPtr = lockPtr.Get( key ) )
@@ -57,7 +57,7 @@ namespace WonSY::Concurrency
 			// _WriteDataPtr를 던지거나 Lock을 잡고 Task를 실행시키지 않고, Key만 제공하도록 인터페이스를 구성한 것은, 
 			// 임계 영역과 관련한 자율성을 더 제공하는 유연한 코드의 작성이 가능할 것이라 생각하였습니다.
 			{
-				lockPtr.HelloWrite(
+				lockPtr.OpenWrite(
 					[ &PrintFunc ]( auto& lockPtr, const WsyWriteKey& key )
 					{
 						// 아래 두 캐이스 중, 경우에 따라( 보통은 해야하는 작업의 비용에 따라 ) 선택하는 경우가 다르고, Key만 제공할 경우 유연한 코드 작성이 가능할 것으로 보였습니다.
@@ -108,7 +108,7 @@ namespace WonSY::Concurrency
 
 			// Copy Funcs
 			{
-				auto copyValue = lockPtr.CopyValue();
+				auto copyValue = lockPtr.GetCopy();
 				
 				// 1.3 때 불필요한 Copy함수 모두 제거
 				//auto copyPtr       = lockPtr.CopyPtr();
@@ -125,7 +125,7 @@ namespace WonSY::Concurrency
 				//PrintFunc( "A - 4", *( copyUniquePtr.get() ) );
 				//PrintFunc( "A - 5", *( copySharedPtr.get() ) );
 
-				lockPtr.HelloRead(
+				lockPtr.OpenRead(
 					[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 					{
 						if ( auto readPtr = lockPtr.Get( key ) )
@@ -147,7 +147,7 @@ namespace WonSY::Concurrency
 							{
 								std::this_thread::sleep_for( 1s );
 
-								lockPtr.HelloRead(
+								lockPtr.OpenRead(
 									[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 									{
 										// 아래의 writePtr 아마 먼저 소유권을 가져가서, 여기서 바로 소유권을 얻지 못하고 3초간 대기한다.
@@ -158,7 +158,7 @@ namespace WonSY::Concurrency
 									} );
 							} );
 
-						lockPtr.HelloWrite(
+						lockPtr.OpenWrite(
 							[ &PrintFunc ]( auto& lockPtr, const WsyWriteKey& key )
 							{
 								if ( auto writePtr = lockPtr.Get( key ) )
@@ -184,7 +184,7 @@ namespace WonSY::Concurrency
 							{
 								std::this_thread::sleep_for( 1s );
 
-								lockPtr.HelloRead(
+								lockPtr.OpenRead(
 									[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 									{
 										// not Waiting
@@ -196,7 +196,7 @@ namespace WonSY::Concurrency
 
 								std::this_thread::sleep_for( 2s );
 
-								lockPtr.HelloRead(
+								lockPtr.OpenRead(
 									[ &PrintFunc ]( auto& lockPtr, const WsyReadKey& key )
 									{
 										if ( auto readPtr = lockPtr.Get( key ) )
@@ -206,7 +206,7 @@ namespace WonSY::Concurrency
 									} );
 							} );
 
-						auto copyValue = lockPtr.CopyValue();
+						auto copyValue = lockPtr.GetCopy();
 						
 						std::this_thread::sleep_for( 2s );
 
@@ -260,11 +260,11 @@ namespace WonSY::Concurrency
 					WsyLockPtr< Node > nodePtr( []() { return new Node(); } );
 
 					{
-						auto copyNode = nodePtr.CopyValue();
+						auto copyNode = nodePtr.GetCopy();
 						if ( copyNode.m_ptr )
 						{
 							// 보통은 임의의 다른 스레드문맥에서, 혹은 같더라도 내부 콜스택에서 임의로 변경할 경우.
-							nodePtr.HelloWrite(
+							nodePtr.OpenWrite(
 								[]( auto& nodePtr, const WsyWriteKey& key )
 								{
 									auto writePtr = nodePtr.Get( key );
@@ -297,7 +297,7 @@ namespace WonSY::Concurrency
 
 				// 3. Write 혹은 Read Task 도중에 같은 쓰레드에서 Set 혹은 Copy 할 경우, 데드락... 다만 이렇게 쓰면 애초에 이상하긴 한데;;
 				{
-					lockPtr.HelloRead(
+					lockPtr.OpenRead(
 						[]( auto& lockPtr, const WsyReadKey& key )
 						{
 							auto tempPtr  = lockPtr.Get( key );
@@ -307,19 +307,19 @@ namespace WonSY::Concurrency
 							lockPtr.Set( getValue );
 						} );
 
-					lockPtr.HelloWrite(
+					lockPtr.OpenWrite(
 						[]( auto& lockPtr, const WsyWriteKey& key )
 						{
 							auto tempPtr = lockPtr.Get( key );
 
 							// 데드락
-							lockPtr.CopyValue();
+							lockPtr.GetCopy();
 						} );
 				}
 
 				// 4. Write Key로 객체를 얻어온 이후, 또 Write Key로 객체를 얻으려고 할 때( 물론 이상하지만 ), 데드락이 발생한다.
 				{
-					lockPtr.HelloWrite(
+					lockPtr.OpenWrite(
 						[]( auto& lockPtr, const WsyWriteKey& key )
 						{
 							auto writePtr1 = lockPtr.Get( key );
